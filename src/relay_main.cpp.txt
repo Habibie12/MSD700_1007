@@ -1,0 +1,69 @@
+#include <Arduino.h>
+#include "HoldButton.h"
+
+// Pins
+const uint8_t BUTTON_A_PIN = 42;
+const uint8_t BUTTON_B_PIN = 43;
+const uint8_t OUTPUT_A_PIN = 44;   // yellow LED / relay A
+const uint8_t OUTPUT_B_PIN = 45;   // green LED / relay B
+
+const unsigned long HOLD_TIME_MS = 2000;   // hold needed to trigger
+const unsigned long ON_TIME_MS   = 5000;   // light on-time after trigger
+
+// Set to false to hide the raw pin readings once the wiring is confirmed
+const bool DEBUG_RAW_PINS = true;
+
+// A and B are separate objects: each has its own pin, timer and state,
+// so one button never affects the other.
+// Set the last argument to false if your relay module is active-LOW.
+HoldButton buttonA("BTN_A", BUTTON_A_PIN, OUTPUT_A_PIN, HOLD_TIME_MS, ON_TIME_MS, true);
+HoldButton buttonB("BTN_B", BUTTON_B_PIN, OUTPUT_B_PIN, HOLD_TIME_MS, ON_TIME_MS, true);
+
+unsigned long lastHeartbeat = 0;
+int lastRawA = -1;
+int lastRawB = -1;
+
+// Prints the raw (un-debounced) pin level whenever it changes.
+// HIGH = released, LOW = pressed. Use this to verify the wiring.
+void printRawPins() {
+    int rawA = digitalRead(BUTTON_A_PIN);
+    int rawB = digitalRead(BUTTON_B_PIN);
+    if (rawA != lastRawA || rawB != lastRawB) {
+        lastRawA = rawA;
+        lastRawB = rawB;
+        Serial.print(F("[RAW] pin42(A)="));
+        Serial.print(rawA ? F("HIGH") : F("LOW"));
+        Serial.print(F("  pin43(B)="));
+        Serial.println(rawB ? F("HIGH") : F("LOW"));
+    }
+}
+
+void setup() {
+    Serial.begin(115200);
+    Serial.println(F("=== HoldButton test (A and B independent) ==="));
+
+    buttonA.begin();
+    buttonB.begin();
+}
+
+void loop() {
+    if (DEBUG_RAW_PINS) printRawPins();
+
+    buttonA.update();
+    buttonB.update();
+
+    // This is where the main program reacts to the commands
+    if (buttonA.wasTriggered()) {
+        Serial.println(F(">> Command A received, light A ON for 5 s"));
+    }
+    if (buttonB.wasTriggered()) {
+        Serial.println(F(">> Command B received, light B ON for 5 s"));
+    }
+
+    // Heartbeat to prove loop() is never blocked
+    if (millis() - lastHeartbeat >= 5000) {
+        lastHeartbeat = millis();
+        Serial.print(F("[loop alive] uptime ms: "));
+        Serial.println(lastHeartbeat);
+    }
+}
